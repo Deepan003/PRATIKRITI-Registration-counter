@@ -17,50 +17,12 @@
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
-<body class="is-booting">
+<body>
   <div class="atmos" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="grain" aria-hidden="true"></div>
 
-  <!-- boot -->
-  <div class="boot" id="boot" aria-hidden="true">
-    <img src="assets/photography-club.png" alt="" width="44" height="44">
-    <span class="boot-line"><i></i></span>
-  </div>
-
-  <!-- password gate -->
-  <section class="gate" id="gate" hidden aria-labelledby="gateTitle">
-    <div class="gate-inner">
-      <div class="gate-brand">
-        <img class="gate-club" src="assets/photography-club.png" alt="" width="52" height="52">
-        <picture>
-          <source srcset="assets/pratikriti.webp" type="image/webp">
-          <img class="gate-logo" src="assets/pratikriti.png" alt="Pratikriti" width="232" height="43">
-        </picture>
-      </div>
-      <p class="gate-kicker">Day 0 of IEMPACT · Organisers only</p>
-      <h1 class="gate-title" id="gateTitle">Registrations <span>dashboard</span></h1>
-      <form class="gate-form" id="gateForm" novalidate>
-        <label class="field" for="pw">
-          <span class="field-label">Password</span>
-          <span class="field-row">
-            <input id="pw" name="password" type="password" autocomplete="current-password" spellcheck="false" autocapitalize="off" maxlength="200" required enterkeyhint="go">
-            <button class="field-eye" id="pwEye" type="button" aria-label="Show password" aria-pressed="false">
-              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-            </button>
-          </span>
-        </label>
-        <p class="gate-error" id="gateError" role="alert"></p>
-        <button class="unlock" id="unlock" type="submit">
-          <span>Unlock</span>
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-      </form>
-      <p class="gate-foot">IEM Photography Club</p>
-    </div>
-  </section>
-
   <!-- dashboard -->
-  <div class="app" id="app" hidden>
+  <div class="app" id="app">
     <header class="bar" id="bar">
       <a class="brand" href="#top" aria-label="Back to top">
         <img class="brand-club" src="assets/photography-club.png" alt="" width="28" height="28">
@@ -74,9 +36,6 @@
         <span class="status" id="status" data-state="syncing"><span class="dot" aria-hidden="true"></span><span id="statusLabel">Sync</span></span>
         <button class="icon-btn" id="refresh" type="button" aria-label="Refresh">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <button class="icon-btn" id="logout" type="button" aria-label="Sign out">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14M10 16l4-4-4-4M14 12H4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
       <span class="progress" aria-hidden="true"><i id="progress"></i></span>
@@ -138,10 +97,48 @@
       </section>
 
       <section class="section fees" id="fees" aria-labelledby="feesTitle">
-        <div class="section-head" data-reveal>
-          <p class="eyebrow small">Organisers only</p>
-          <h2 id="feesTitle">Fee collection</h2>
+        <div class="section-head fees-head" data-reveal>
+          <div>
+            <p class="eyebrow small">Organisers only</p>
+            <h2 id="feesTitle">Fee collection</h2>
+          </div>
+          <button class="lock-again" id="feeRelock" type="button" hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            Lock
+          </button>
         </div>
+
+        <div class="vault" id="feeLock" data-reveal>
+          <div class="vault-blur" aria-hidden="true">
+            <span class="vb-num">₹ ••,•••</span>
+            <span class="vb-bars"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="vault-body">
+            <span class="vault-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22"><rect x="5" y="10.5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </span>
+            <h3 class="vault-title">Fees are locked</h3>
+            <p class="vault-sub">Totals, event and genre breakdowns, packages and daily charts. Enter the organisers' password to open.</p>
+            <form class="gate-form" id="gateForm" novalidate>
+              <label class="field" for="pw">
+                <span class="field-label">Password</span>
+                <span class="field-row">
+                  <input id="pw" name="password" type="password" autocomplete="current-password" spellcheck="false" autocapitalize="off" maxlength="200" required enterkeyhint="go">
+                  <button class="field-eye" id="pwEye" type="button" aria-label="Show password" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+                  </button>
+                </span>
+              </label>
+              <p class="gate-error" id="gateError" role="alert"></p>
+              <button class="unlock" id="unlock" type="submit">
+                <span>Unlock fees</span>
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="fee-content" id="feeContent" hidden>
         <div class="fee-hero" id="feeHero" data-reveal></div>
         <div class="panel" data-reveal>
           <p class="eyebrow small">Share of fees</p>
@@ -157,6 +154,7 @@
           <dl class="prices" id="feePrices"></dl>
         </div>
         <p class="fee-note" data-reveal>Fees are worked out from the option each person picked on the form. They are not matched against payment screenshots or transaction IDs.</p>
+        </div>
       </section>
 
       <div class="empty" id="empty" role="status" hidden></div>

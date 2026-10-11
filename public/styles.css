@@ -111,7 +111,7 @@ body:not(.is-booting) .boot { opacity: 0; visibility: hidden; }
 .field-eye { position: absolute; right: 0; width: 40px; height: 40px; display: grid; place-items: center; border: 0; background: none; color: var(--faint); cursor: pointer; border-radius: 8px; }
 .field-eye[aria-pressed="true"] { color: var(--text); }
 .gate-error { min-height: 20px; margin: 10px 0 0; font-size: 13px; color: #ff8a7e; }
-.gate.is-wrong .field-row { animation: shake 0.42s var(--io); }
+.gate.is-wrong .field-row, .vault.is-wrong .field-row { animation: shake 0.42s var(--io); }
 @keyframes shake { 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
 .unlock {
   position: relative; overflow: hidden; width: 100%; height: 54px; margin-top: 14px;
@@ -473,4 +473,43 @@ h2 { margin: 6px 0 0; font-weight: 850; font-stretch: 72%; font-size: 26px; line
   .fee-events { grid-template-columns: 1fr 1fr; gap: 12px; }
   .ex-total b { font-size: 52px; }
   .controls { grid-template-columns: 1fr; }
+}
+
+/* ---------- locked fee section ---------- */
+.fees-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.lock-again {
+  display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 13px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--line-2); background: var(--surface); color: var(--mute); font-weight: 600; font-size: 13px;
+  box-shadow: 0 2px 0 #000; transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, color 0.2s;
+}
+.lock-again:hover { color: var(--text); }
+.lock-again:active { transform: translateY(2px); box-shadow: none; }
+.vault {
+  position: relative; overflow: hidden; isolation: isolate; border-radius: 22px;
+  border: 1px solid rgba(255, 59, 46, 0.28);
+  background: linear-gradient(160deg, #1a0706 0%, #2e0806 50%, #120606 100%);
+  box-shadow: 0 40px 80px -46px rgba(227, 38, 28, 0.7);
+}
+.vault::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0.5;
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 14px);
+}
+.vault-blur { position: absolute; inset: 0; z-index: -1; padding: 26px 22px; filter: blur(14px); opacity: 0.55; pointer-events: none; }
+.vb-num { display: block; font-weight: 900; font-stretch: 62%; font-size: 96px; line-height: 0.9; color: #fff; }
+.vb-bars { display: flex; align-items: flex-end; gap: 10px; height: 120px; margin-top: 30px; }
+.vb-bars i { flex: 1; border-radius: 6px 6px 0 0; background: var(--grad); }
+.vb-bars i:nth-child(1) { height: 40%; } .vb-bars i:nth-child(2) { height: 75%; } .vb-bars i:nth-child(3) { height: 55%; } .vb-bars i:nth-child(4) { height: 95%; }
+.vault-body { position: relative; padding: 26px 20px 22px; background: linear-gradient(180deg, rgba(10, 8, 8, 0.35), rgba(10, 8, 8, 0.82) 45%); }
+.vault-icon {
+  width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; color: #fff;
+  background: var(--grad); box-shadow: 0 14px 30px -12px rgba(227, 38, 28, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.vault-title { margin: 18px 0 0; font-weight: 850; font-stretch: 70%; font-size: 30px; line-height: 0.95; text-transform: uppercase; }
+.vault-sub { margin: 8px 0 0; max-width: 42ch; font-size: 14px; color: var(--mute); }
+.vault .gate-form { margin-top: 22px; }
+.vault .field input { font-size: 18px; }
+.fee-content > :first-child { margin-top: 0; }
+@media (min-width: 720px) {
+  .vault-body { padding: 34px 32px 30px; }
+  .vault .gate-form { max-width: 420px; }
 }

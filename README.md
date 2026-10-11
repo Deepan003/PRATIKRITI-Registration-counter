@@ -1,14 +1,18 @@
 # Pratikriti Registrations
 
-Password-protected live dashboard for **Pratikriti**, Day 0 of IEMPACT, by IEM Photography Club.
-It shows total and event-wise registrations, Chitrantar photo submissions, genre/theme splits,
-date-wise charts, colleges, and a detailed fee-collection breakdown.
+Live dashboard for **Pratikriti**, Day 0 of IEMPACT, by IEM Photography Club.
+
+- **Public** (anyone with the link): total and event-wise registrations, Chitrantar photo
+  submissions, genre/theme splits, date-wise charts and colleges.
+- **Locked** (organisers' password): the fee-collection section. Fee figures are served by a
+  separate endpoint and never reach a browser until the password is entered.
 
 ```
 4 Google Form response sheets (Restricted)
         │  read-only, as a Google service account
         ▼
-Vercel function /api/stats ── counts only, behind a password ──► browser
+/api/stats  ── public counts, no fees ─────────────► browser
+/api/fees   ── fee figures, password session only ──► browser (fee section)
 ```
 
 - The sheets stay **Restricted**. They are shared only with the service account's email.
@@ -20,8 +24,10 @@ Vercel function /api/stats ── counts only, behind a password ──► brows
 | Path | What it is |
 | --- | --- |
 | `public/` | The website (plain HTML/CSS/JS, no build step) |
-| `api/stats.js` | Reads the sheets and returns statistics (needs a login session) |
-| `api/login.js` | Checks the password and sets a secure session cookie |
+| `api/stats.js` | Public statistics (no fee figures) |
+| `api/fees.js` | Fee figures, only with a valid fee-section session |
+| `api/login.js` | Checks the fee password and sets a secure session cookie |
+| `lib/data.js` | Shared sheet loading + caching used by both endpoints |
 | `lib/events.js` | **Which column holds what** in each form, genres and fees. Edit here if a form changes |
 | `lib/aggregate.js` | Turns form rows into counts, charts and fee figures |
 | `lib/sheets.js` | Google Sheets reader (service account, read-only) |
@@ -52,7 +58,7 @@ email → **Viewer** → untick "Notify people" → **Share**. General access ca
 
 | Name | Value |
 | --- | --- |
-| `DASHBOARD_PASSWORD` | the dashboard password |
+| `FEES_PASSWORD` | the password for the fee section |
 | `SESSION_SECRET` | any long random string (optional, recommended) |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | open the downloaded `.json` file, copy everything, paste |
 | `SHEET_CHITRANTAR` | the Chitrantar responses sheet link (or just its ID) |
@@ -85,9 +91,11 @@ a warning in Vercel when a header no longer looks right.
 
 ## Security
 
+- The public endpoint strips every fee figure; only `/api/fees` serves them, and only with a valid session.
 - Password checked on the server only (constant-time compare); 8 wrong tries from one IP locks it for 15 min.
 - Session is an HttpOnly, Secure, SameSite=Strict signed cookie (7 days). Sign-out clears it.
-  Changing `DASHBOARD_PASSWORD` or `SESSION_SECRET` signs everyone out.
-- Statistics responses are `private, no-store`, so they're never cached on a shared CDN.
+  Changing `FEES_PASSWORD` or `SESSION_SECRET` signs everyone out of the fee section.
+  (`DASHBOARD_PASSWORD` from older setups still works as a fallback.)
+- Fee responses are `private, no-store`, so they're never cached on a shared CDN.
 - Strict Content-Security-Policy, no third-party scripts, `noindex`, frames blocked, per-IP rate limit.
 - `.gitignore` blocks spreadsheet exports and key files from ever being committed.

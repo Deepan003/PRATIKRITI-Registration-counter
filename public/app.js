@@ -43,16 +43,16 @@
   const sum = (arr) => arr.reduce((a, v) => a + v, 0);
 
   const el = {
-    boot: $('#boot'), gate: $('#gate'), gateForm: $('#gateForm'), pw: $('#pw'), pwEye: $('#pwEye'), gateError: $('#gateError'), unlock: $('#unlock'),
+    gateForm: $('#gateForm'), pw: $('#pw'), pwEye: $('#pwEye'), gateError: $('#gateError'), unlock: $('#unlock'),
     app: $('#app'), bar: $('#bar'), progress: $('#progress'), status: $('#status'), statusLabel: $('#statusLabel'),
-    refresh: $('#refresh'), logout: $('#logout'), updated: $('#updated'),
+    refresh: $('#refresh'), updated: $('#updated'),
     kTotal: $('#kTotal'), kTotalSub: $('#kTotalSub'), spark: $('#spark'),
     kPhotos: $('#kPhotos'), kToday: $('#kToday'), kTodaySub: $('#kTodaySub'), kColleges: $('#kColleges'),
     events: $('#events'), colleges: $('#colleges'), moreColleges: $('#moreColleges'), empty: $('#empty'),
     feeHero: $('#feeHero'), feeShare: $('#feeShare'), feeShareLegend: $('#feeShareLegend'), feeEvents: $('#feeEvents'), feePrices: $('#feePrices'),
   };
 
-  const S = { data: null, sig: '', busy: false, timer: 0, failures: 0, lastSync: 0, cooldown: 0, pending: false, allColleges: false, authed: false };
+  const S = { data: null, sig: '', busy: false, timer: 0, failures: 0, lastSync: 0, cooldown: 0, pending: false, allColleges: false, fees: null, feesUnlocked: false };
 
   // ================================================================== motion helpers
   // Scroll reveals: anything marked data-reveal fades/sharpens in once it enters the viewport.
@@ -130,30 +130,43 @@
     ind.style.transform = `translateX(${on.offsetLeft}px)`;
   }
 
-  // ================================================================== gate + session
-  function showGate(message = '') {
-    S.authed = false;
-    clearTimeout(S.timer);
-    document.body.classList.remove('is-booting');
-    el.app.hidden = true;
-    el.gate.hidden = false;
-    el.gate.classList.remove('is-leaving');
+  // ================================================================== fee lock + session
+  el.feeLock = $('#feeLock');
+  el.feeContent = $('#feeContent');
+  el.feeRelock = $('#feeRelock');
+
+  function lockFees(message = '') {
+    S.fees = null;
+    S.feesUnlocked = false;
+    el.feeContent.hidden = true;
+    el.feeRelock.hidden = true;
+    el.feeLock.hidden = false;
     el.gateError.textContent = message;
     el.pw.value = '';
-    setTimeout(() => el.pw.focus({ preventScroll: true }), 350);
   }
-  function showApp() {
-    S.authed = true;
-    document.body.classList.remove('is-booting');
-    if (!el.gate.hidden && !calm()) {
-      el.gate.classList.add('is-leaving');
-      setTimeout(() => { el.gate.hidden = true; }, 500);
-    } else {
-      el.gate.hidden = true;
+  function unlockFees(body) {
+    const first = !S.feesUnlocked;
+    S.fees = body.fees;
+    S.feesUnlocked = true;
+    el.feeLock.hidden = true;
+    el.feeRelock.hidden = false;
+    el.feeContent.hidden = false;
+    if (first) $$('[data-reveal]', el.feeContent).forEach(reveal);
+    if (S.data) renderFeesAll();
+  }
+
+  /** Fetch the protected fee figures. Quietly shows the lock when there's no valid session. */
+  async function loadFees() {
+    try {
+      const res = await fetch('/api/fees', { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(15000) });
+      if (res.status === 401) { if (S.feesUnlocked) lockFees('Your session ended. Enter the password again.'); return false; }
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body || !body.fees) return false;
+      unlockFees(body);
+      return true;
+    } catch {
+      return false;
     }
-    el.app.hidden = false;
-    $$('[data-reveal]', el.app).forEach(reveal);
-    requestAnimationFrame(() => { explorers.forEach((x) => x.layout()); onScroll(); });
   }
 
   el.pwEye.addEventListener('click', () => {
@@ -175,10 +188,15 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({ password }),
       });
-      if (res.status === 204) { el.pw.value = ''; await sync(true); return; }
+      if (res.status === 204) {
+        el.pw.value = '';
+        el.pw.blur();
+        if (!(await loadFees())) wrong("Unlocked, but the fee figures couldn't load. Try refresh.");
+        return;
+      }
       const body = await res.json().catch(() => ({}));
       if (res.status === 429) wrong(`Too many attempts. Try again in ${Math.ceil((body.retryAfter || 900) / 60)} min.`);
-      else if (res.status === 503) wrong('The dashboard password has not been set up yet.');
+      else if (res.status === 503) wrong('The fee password has not been set up yet.');
       else wrong("That's not the password.");
     } catch {
       wrong('No connection. Try again.');
@@ -188,18 +206,16 @@
   });
   function wrong(msg) {
     el.gateError.textContent = msg;
-    el.gate.classList.remove('is-wrong');
-    void el.gate.offsetWidth;
-    el.gate.classList.add('is-wrong');
+    el.feeLock.classList.remove('is-wrong');
+    void el.feeLock.offsetWidth;
+    el.feeLock.classList.add('is-wrong');
     try { navigator.vibrate?.(30); } catch { /* unsupported */ }
     el.pw.select();
   }
 
-  el.logout.addEventListener('click', async () => {
-    try { await fetch('/api/login', { method: 'DELETE', credentials: 'same-origin' }); } catch { /* still leave */ }
-    S.data = null;
-    S.sig = '';
-    showGate('Signed out.');
+  el.feeRelock.addEventListener('click', async () => {
+    try { await fetch('/api/login', { method: 'DELETE', credentials: 'same-origin' }); } catch { /* lock locally anyway */ }
+    lockFees('Locked.');
   });
 
   // ================================================================== data sync
@@ -216,9 +232,8 @@
     setStatus('syncing');
     try {
       const res = await fetch('/api/stats', {
-        headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(15000),
+        headers: { Accept: 'application/json' }, cache: manual ? 'no-cache' : 'default', signal: AbortSignal.timeout(15000),
       });
-      if (res.status === 401) { showGate(S.data ? 'Your session ended. Enter the password again.' : ''); return; }
       const body = await res.json().catch(() => null);
       if (!res.ok || !body || !Array.isArray(body.events)) {
         const err = new Error('bad');
@@ -227,19 +242,15 @@
       }
       S.failures = 0;
       S.lastSync = Date.now();
-      if (!S.authed) showApp();
       apply(body);
+      if (S.feesUnlocked) await loadFees();
       setStatus('live');
       schedule(POLL_MS + Math.random() * 8000);
     } catch (err) {
       S.failures += 1;
-      if (!S.authed) {
-        showGate(err.code === 'not_configured' ? 'The dashboard is not connected yet.' : "Can't reach the dashboard. Check your connection.");
-      } else {
-        setStatus('stale');
-        if (!S.data) showError(err.code);
-      }
-      if (S.authed) schedule(Math.min(15000 * 2 ** (S.failures - 1), 180000));
+      setStatus('stale');
+      if (!S.data) showError(err.code);
+      schedule(Math.min(15000 * 2 ** (S.failures - 1), 180000));
     } finally {
       S.busy = false;
       if (manual) el.refresh.blur();
@@ -250,7 +261,7 @@
     S.timer = setTimeout(() => { if (document.hidden) S.pending = true; else sync(); }, ms);
   }
   document.addEventListener('visibilitychange', () => {
-    if (S.authed && !document.hidden && (S.pending || Date.now() - S.lastSync > POLL_MS)) { S.pending = false; sync(); }
+    if (!document.hidden && (S.pending || Date.now() - S.lastSync > POLL_MS)) { S.pending = false; sync(); }
   });
   el.refresh.addEventListener('click', () => {
     if (Date.now() < S.cooldown) return;
@@ -269,15 +280,23 @@
     el.empty.hidden = true;
     const time = new Intl.DateTimeFormat('en-IN', { timeZone: data.timezone, hour: 'numeric', minute: '2-digit' }).format(new Date(data.updated));
     el.updated.textContent = `Updated ${time} IST · since ${fmtDay(data.days[0])}`;
-    const sig = JSON.stringify([data.totals, data.events, data.days, data.series, data.colleges, data.fees]);
+    const sig = JSON.stringify([data.totals, data.events, data.days, data.series, data.colleges]);
     if (sig === S.sig) return;
     S.sig = sig;
     renderHero();
     renderStrip();
-    explorers.forEach((x) => x.render(true));
+    regExplorer.render(true);
     renderEvents();
     renderColleges();
+  }
+
+  let feeSig = '';
+  function renderFeesAll() {
+    const sig = JSON.stringify(S.fees);
+    if (sig === feeSig) return;
+    feeSig = sig;
     renderFees();
+    feeExplorer.render(true);
   }
 
   // ================================================================== colours (follow the entity)
@@ -383,7 +402,7 @@
       tableWrap, list, note,
     );
 
-    root.addEventListener('revealed', () => { st.visible = true; if (S.data) render(true); });
+    root.addEventListener('revealed', () => { st.visible = true; render(true); });
 
     function setScope(id) {
       st.scope = id;
@@ -440,7 +459,7 @@
     }
 
     function render(animate) {
-      if (!S.data) return;
+      if (!S.data || (cfg.ready && !cfg.ready())) return;
       st.model = cfg.model(st.scope, st.breakdown);
       const m = st.model;
       controls();
@@ -686,9 +705,10 @@
   // ---- fees explorer
   const feeExplorer = Explorer($('#feeExplorer'), {
     eyebrow: 'Fees',
+    ready: () => Boolean(S.fees),
     splits(scope) {
       if (scope === 'all') return [{ id: 'total', label: 'Total' }, { id: 'event', label: 'By event' }];
-      const fe = S.data.fees.events[evIndex(scope)];
+      const fe = S.fees.events[evIndex(scope)];
       return [
         { id: 'total', label: 'Total' },
         { id: 'package', label: 'By package', disabled: !fe.tiers.length },
@@ -696,7 +716,7 @@
       ];
     },
     model(scope, split) {
-      const f = S.data.fees;
+      const f = S.fees;
       const base = { money: true, totalUnit: 'collected', unit: ['', ''] };
       if (scope === 'all') {
         if (split === 'total') {
@@ -787,7 +807,7 @@
 
   // ================================================================== fees
   function renderFees() {
-    const f = S.data.fees;
+    const f = S.fees;
     const d = S.data;
     const diff = f.today - f.yesterday;
     const total = h('span', { class: 'roll' });
@@ -870,5 +890,8 @@
   document.fonts?.ready.then(() => explorers.forEach((x) => x.layout()));
   document.addEventListener('touchstart', () => {}, { passive: true }); // iOS :active states
 
+  $$('[data-reveal]').forEach(reveal);
+  onScroll();
   sync();
+  loadFees(); // opens the fee section straight away if this browser is already unlocked
 })();
