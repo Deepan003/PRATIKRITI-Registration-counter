@@ -288,6 +288,7 @@
     regExplorer.render(true);
     renderEvents();
     renderColleges();
+    renderInsights();
   }
 
   let feeSig = '';
@@ -398,6 +399,7 @@
           h('div', { class: 'ctl' }, h('span', { class: 'ctl-label' }, 'Split by'), splitSeg),
           h('div', { class: 'ctl' }, h('span', { class: 'ctl-label' }, 'View'), modeSeg))),
       legend, plot,
+      h('p', { class: 'swipe-hint', 'aria-hidden': 'true' }, '← Swipe the chart to switch events →'),
       h('div', { class: 'panel-foot' }, insight, tableBtn),
       tableWrap, list, note,
     );
@@ -509,6 +511,14 @@
       const xc = (i) => mg.l + band * (i + 0.5);
       svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
       svg.setAttribute('aria-label', `${m.title}. ${m.sub}`);
+      if (animate && !calm()) {
+        const dir = st.swipeDir || 0;
+        st.swipeDir = 0;
+        svg.animate([
+          { opacity: 0.15, transform: `translateX(${dir * 28}px)` },
+          { opacity: 1, transform: 'none' },
+        ], { duration: 520, easing: 'cubic-bezier(.16,1,.3,1)' });
+      }
       svg.replaceChildren();
 
       const grid = s('g', { class: 'grid' });
@@ -639,6 +649,24 @@
     plot.addEventListener('pointermove', (e) => { if (st.chart) showTip(at(e.clientX)); });
     plot.addEventListener('pointerdown', (e) => { if (st.chart) showTip(at(e.clientX)); });
     plot.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hideTip(); });
+    // swipe the chart sideways to step through All events → each event
+    let sx = null;
+    let sy = 0;
+    plot.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') { sx = e.clientX; sy = e.clientY; } });
+    plot.addEventListener('pointercancel', () => { sx = null; });
+    plot.addEventListener('pointerup', (e) => {
+      if (sx == null || !S.data) return;
+      const dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      sx = null;
+      if (Math.abs(dx) < 56 || Math.abs(dy) > 48) return;
+      const scopes = ['all', ...S.data.events.map((x) => x.id)];
+      const next = scopes[(scopes.indexOf(st.scope) + (dx < 0 ? 1 : -1) + scopes.length) % scopes.length];
+      hideTip();
+      st.swipeDir = dx < 0 ? 1 : -1;
+      setScope(next);
+      haptic(10);
+    });
     document.addEventListener('pointerdown', (e) => { if (!plot.contains(e.target)) hideTip(); });
 
     function drawTable() {
@@ -876,12 +904,209 @@
       h('dd', null, e.priceList.map((p) => h('span', null, p.label, b(inr(p.price))))))));
   }
 
+  // ================================================================== insights
+  const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const BLOCKS = ['12–4a', '4–8a', '8a–12', '12–4p', '4–8p', '8p–12'];
+  const hourName = (hr) => `${hr % 12 || 12} ${hr < 12 ? 'AM' : 'PM'}`;
+  const ins = {
+    kpis: $('#insKpis'), toggle: $('#insToggle'), more: $('#insMore'), maPlot: $('#maPlot'), maChart: $('#maChart'), maLegend: $('#maLegend'),
+    hours: $('#hours'), hourNote: $('#hourNote'), weekdays: $('#weekdays'), heat: $('#heat'), compare: $('#compare'), conc: $('#conc'),
+  };
+
+  function kpiTile(label, value, sub, tone) {
+    return h('div', { class: 'kpi-tile' }, h('p', { class: 'kt-label' }, label), h('p', { class: 'kt-value' }, value), h('p', { class: `kt-sub${tone ? ` ${tone}` : ''}` }, sub));
+  }
+
+  function renderInsights() {
+    const I = S.data.insights;
+    if (!I) return;
+    const g = I.growth;
+    ins.kpis.replaceChildren(
+      kpiTile('Last 7 days', nf.format(I.last7), g == null ? 'first week of data' : `${g >= 0 ? '▲' : '▼'} ${Math.abs(Math.round(g))}% vs the 7 before`, g == null ? '' : g >= 0 ? 'good' : 'bad'),
+      kpiTile('Average a day', I.perDay.toFixed(1), `${I.activeDays} of ${S.data.days.length} days had sign-ups`),
+      kpiTile('Peak hour', I.peakHour == null ? '—' : hourName(I.peakHour), 'most registrations land then'),
+      kpiTile('Busiest day', I.peakWeekday == null ? '—' : WEEKDAYS[I.peakWeekday], 'of the week so far'),
+    );
+    if (ins.toggle.getAttribute('aria-expanded') === 'true') renderInsightDetails();
+  }
+
+  function renderInsightDetails() {
+    const I = S.data.insights;
+    const d = S.data;
+
+    // momentum: daily bars + 7-day moving average line
+    const daily = d.days.map((_, i) => sum(d.series.all.data.map((r) => r[i])));
+    const W = ins.maPlot.clientWidth || 320;
+    const H = ins.maPlot.clientHeight || 170;
+    const m = { t: 10, r: 14, b: 22, l: 28 };
+    const iw = W - m.l - m.r;
+    const ih = H - m.t - m.b;
+    const max = niceMax(Math.max(1, ...daily));
+    const y = (v) => m.t + ih - (v / max) * ih;
+    const band = iw / d.days.length;
+    const xc = (i) => m.l + band * (i + 0.5);
+    const svg = ins.maChart;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.replaceChildren();
+    const grid = s('g', { class: 'grid' });
+    const axis = s('g', { class: 'axis' });
+    for (let k = 0; k <= 2; k++) {
+      const v = (max / 2) * k;
+      const yy = Math.round(y(v)) + 0.5;
+      grid.append(s('line', { x1: m.l, x2: W - m.r, y1: yy, y2: yy, class: k === 0 ? 'base' : null }));
+      const t = s('text', { x: m.l - 6, y: yy + 3.5, 'text-anchor': 'end' });
+      t.textContent = nf.format(v);
+      axis.append(t);
+    }
+    const every = Math.max(1, Math.ceil(d.days.length / Math.max(2, Math.floor(iw / 58))));
+    d.days.forEach((day, i) => {
+      if ((d.days.length - 1 - i) % every) return;
+      const t = s('text', { x: xc(i), y: H - 5, 'text-anchor': 'middle' });
+      t.textContent = fmtDay(day);
+      axis.append(t);
+    });
+    const bars = s('g', { class: 'bars is-grow' });
+    const bw = Math.max(3, Math.min(22, band * 0.56));
+    daily.forEach((v, i) => {
+      if (!v) return;
+      const node = s('path', { d: topRounded(xc(i) - bw / 2, y(v), bw, Math.max(1, y(0) - y(v)), 3), fill: 'rgba(244,240,235,0.22)' });
+      node.style.animationDelay = `${Math.min(i * 22, 400)}ms`;
+      bars.append(node);
+    });
+    const pts = I.ma7.map((v, i) => `${xc(i)},${y(v)}`);
+    const line = s('path', { class: 'ma-line', d: I.ma7.length > 1 ? `M${pts.join('L')}` : `M${m.l},${y(I.ma7[0])}H${W - m.r}` });
+    const lastDot = s('circle', { cx: xc(I.ma7.length - 1), cy: y(I.ma7[I.ma7.length - 1]), r: 4, class: 'ma-dot' });
+    svg.append(grid, axis, bars, line, lastDot);
+    if (!calm()) line.animate([{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: 1200, delay: 250, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' });
+    ins.maLegend.replaceChildren(
+      h('li', null, swatch('rgba(244,240,235,0.35)'), 'Daily'),
+      h('li', null, swatch(SERIES[0]), '7-day average ', b(I.ma7[I.ma7.length - 1].toFixed(1))),
+    );
+
+    // hours: 24 bars
+    const hMax = Math.max(1, ...I.byHour);
+    ins.hours.replaceChildren(...I.byHour.map((v, hr) => {
+      const bar = h('button', { class: `hr${hr === I.peakHour ? ' is-peak' : ''}`, type: 'button', role: 'listitem', 'aria-label': `${hourName(hr)}: ${v} ${plural(v, 'registration')}` },
+        h('i'), hr % 6 === 0 ? h('span', null, hourName(hr).replace(' ', '')) : null);
+      bar.firstChild.style.setProperty('--v', (v / hMax).toFixed(3));
+      bar.firstChild.style.transitionDelay = `${hr * 18}ms`;
+      bar.addEventListener('click', () => {
+        $$('.hr', ins.hours).forEach((x) => x.classList.toggle('is-sel', x === bar));
+        ins.hourNote.replaceChildren(b(`${hourName(hr)} – ${hourName((hr + 1) % 24)}`), ` · ${v} ${plural(v, 'registration')} (${pct(v, sum(I.byHour))})`);
+      });
+      return bar;
+    }));
+    ins.hourNote.replaceChildren(...(I.peakHour == null ? ['No timing data yet.'] : ['Most sign-ups arrive around ', b(hourName(I.peakHour)), '. Good time to post reminders.']));
+
+    // weekdays
+    const wMax = Math.max(1, ...I.byWeekday);
+    ins.weekdays.replaceChildren(...I.byWeekday.map((v, i) => h('div', { class: `wd${i === I.peakWeekday ? ' is-peak' : ''}`, role: 'listitem' },
+      h('span', { class: 'wd-l' }, WEEKDAYS[i]), fillBar(v / wMax, i === I.peakWeekday ? SERIES[0] : 'rgba(244,240,235,0.4)'), h('span', { class: 'wd-v' }, nf.format(v)))));
+
+    // heat map
+    const hm = Math.max(1, ...I.heat.flat());
+    ins.heat.replaceChildren(
+      h('thead', null, h('tr', null, h('th'), BLOCKS.map((bl) => h('th', { scope: 'col' }, bl)))),
+      h('tbody', null, I.heat.map((row, wd) => h('tr', null, h('th', { scope: 'row' }, WEEKDAYS[wd]), row.map((v) => {
+        const td = h('td', null, v ? String(v) : '');
+        td.style.setProperty('--a', (v / hm).toFixed(3));
+        if (v / hm > 0.55) td.classList.add('is-hot');
+        return td;
+      })))),
+    );
+
+    // compare table
+    const head = ['Event', 'Total', 'Last 7d', 'vs prev', 'Per day', 'Best day', 'Active'];
+    ins.compare.replaceChildren(
+      h('thead', null, h('tr', null, head.map((t) => h('th', { scope: 'col' }, t)))),
+      h('tbody', null, I.compare.map((c) => {
+        const delta = c.last7 - c.prev7;
+        return h('tr', null,
+          h('th', { scope: 'row' }, h('span', { class: 'cmp-name' }, swatch(evColor(c.id)), c.name)),
+          h('td', null, b(nf.format(c.registrations))),
+          h('td', null, nf.format(c.last7)),
+          h('td', { class: delta > 0 ? 'good' : delta < 0 ? 'bad' : null }, c.prev7 || c.last7 ? `${delta >= 0 ? '+' : ''}${delta}` : '—'),
+          h('td', null, c.perDay.toFixed(1)),
+          h('td', null, c.bestDay ? `${fmtDay(c.bestDay.day)} · ${c.bestDay.count}` : '—'),
+          h('td', null, `${c.activeDays}d`));
+      })),
+    );
+    const ch = I.compare.find((c) => c.id === 'chitrantar');
+    if (ch && ch.photosPerEntry) ins.compare.prepend(h('caption', null, `Chitrantar entrants submit ${ch.photosPerEntry.toFixed(2)} photos on average.`));
+
+    // concentration
+    const top1 = I.topCollegeShare;
+    const top3 = Math.max(top1, I.top3CollegeShare);
+    const bar = h('div', { class: 'conc-bar' }, h('i'), h('i'), h('i'));
+    [[top1, SERIES[0]], [top3 - top1, 'rgba(244,240,235,0.7)'], [100 - top3, 'rgba(244,240,235,0.2)']].forEach(([v, c], i) => {
+      bar.children[i].style.flex = `${Math.max(0, v)} 1 0`;
+      bar.children[i].style.background = c;
+    });
+    const lead = d.colleges[0];
+    const row = (color, label, v) => h('li', null, h('span', { class: 'lbl' }, swatch(color), label), h('span', { class: 'val' }, `${Math.round(v)}%`), h('span', { class: 'pct' }));
+    ins.conc.replaceChildren(
+      bar,
+      h('ul', { class: 'share-legend' },
+        row(SERIES[0], lead ? lead.name : 'Top college', top1),
+        row('rgba(244,240,235,0.7)', 'Next two colleges', top3 - top1),
+        row('rgba(244,240,235,0.2)', 'Everyone else', 100 - top3)),
+      h('p', { class: 'insight' }, ...(top1 >= 60
+        ? ['Registrations lean heavily on ', b(lead ? lead.name : 'one college'), '. Outreach to other colleges has the most room to grow.']
+        : ['Registrations are spread across colleges.'])),
+    );
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      ins.hours.classList.add('is-in');
+      growBars(ins.weekdays);
+    }));
+  }
+
+  ins.toggle.addEventListener('click', () => {
+    const open = ins.toggle.getAttribute('aria-expanded') !== 'true';
+    ins.toggle.setAttribute('aria-expanded', String(open));
+    ins.more.classList.toggle('is-open', open);
+    ins.more.inert = !open;
+    haptic();
+    if (open && S.data) { ins.hours.classList.remove('is-in'); requestAnimationFrame(renderInsightDetails); }
+  });
+  ins.more.inert = true;
+
+  // ================================================================== mobile niceties
+  function haptic(ms = 8) { try { navigator.vibrate?.(ms); } catch { /* unsupported */ } }
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.chip, .seg button, .event, .dock a, .lock-again, .hr')) haptic();
+  });
+
+  // section dock: highlights the section in view
+  const dock = $('#dock');
+  const dockLinks = $$('a', dock);
+  const dockInd = $('.dock-ind', dock);
+  function placeDock(link) {
+    if (!link) return;
+    dockLinks.forEach((a) => a.classList.toggle('is-on', a === link));
+    dockInd.style.width = `${link.offsetWidth}px`;
+    dockInd.style.transform = `translateX(${link.offsetLeft}px)`;
+    if (dock.scrollWidth > dock.clientWidth) dock.scrollTo({ left: link.offsetLeft - 40, behavior: calm() ? 'auto' : 'smooth' });
+  }
+  const sectionIO = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) placeDock(dockLinks.find((a) => a.dataset.target === e.target.id));
+  }, { rootMargin: '-40% 0px -55% 0px' });
+  dockLinks.forEach((a) => { const t = document.getElementById(a.dataset.target); if (t) sectionIO.observe(t); });
+  dockLinks.forEach((a) => a.addEventListener('click', (e) => {
+    const t = document.getElementById(a.dataset.target);
+    if (!t) return;
+    e.preventDefault();
+    placeDock(a);
+    t.scrollIntoView({ behavior: calm() ? 'auto' : 'smooth', block: 'start' });
+  }));
+  requestAnimationFrame(() => placeDock(dockLinks[0]));
+
   // ================================================================== header scroll + boot
   let scrollQueued = false;
   function onScroll() {
     scrollQueued = false;
     const y = scrollY;
     el.bar.classList.toggle('is-scrolled', y > 8);
+    dock.classList.toggle('is-shown', y > innerHeight * 0.35);
     const max = document.documentElement.scrollHeight - innerHeight;
     el.progress.style.transform = `scaleX(${max > 0 ? Math.min(1, y / max).toFixed(4) : 0})`;
   }
