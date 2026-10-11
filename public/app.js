@@ -415,7 +415,7 @@
     function focusEvent(id) {
       st.scope = id;
       const opts = cfg.splits(id).filter((o) => !o.disabled);
-      st.breakdown = (opts.find((o) => o.id !== 'total') || opts[0]).id;
+      st.breakdown = (id === 'chitrantar' ? opts[0] : opts.find((o) => o.id !== 'total') || opts[0]).id;
       render(true);
       root.scrollIntoView({ behavior: calm() ? 'auto' : 'smooth', block: 'start' });
     }
@@ -696,8 +696,10 @@
     splits(scope) {
       if (scope === 'all') return [{ id: 'total', label: 'Total' }, { id: 'event', label: 'By event' }];
       const ev = S.data.events[evIndex(scope)];
-      const label = scope === 'chitrantar' ? 'By theme' : 'By genre';
-      return [{ id: 'total', label: 'Total' }, { id: 'genre', label, disabled: !ev.breakdown.length }];
+      if (scope === 'chitrantar') {
+        return [{ id: 'total', label: 'Registrations' }, { id: 'subs', label: 'Submissions' }, { id: 'genre', label: 'By theme', disabled: !ev.breakdown.length }];
+      }
+      return [{ id: 'total', label: 'Total' }, { id: 'genre', label: 'By genre', disabled: !ev.breakdown.length }];
     },
     model(scope, split) {
       const d = S.data;
@@ -712,18 +714,26 @@
         };
       }
       const ev = d.events[evIndex(scope)];
+      if (split === 'subs') {
+        const data = d.days.map((_, i) => sum(d.series.chitrantar.data.map((r) => r[i])));
+        return {
+          title: `${ev.name} submissions`, sub: 'Photos sent in, day by day', totalUnit: 'photos submitted', unit: ['photo', 'photos'],
+          note: `${nf.format(ev.registrations)} ${plural(ev.registrations, 'registration')} sent in ${nf.format(ev.submissions)} ${plural(ev.submissions, 'photo')}: each registration can submit 1 to 3.`,
+          items: [{ label: 'Submissions', color: SERIES[1], data }],
+        };
+      }
       if (split === 'total') {
-        return { title: ev.name, sub: `${ev.tagline} · all registrations`, totalUnit: 'registrations', unit: ['registration', 'registrations'], items: [{ label: ev.name, color: evColor(scope), data: d.series.all.data[evIndex(scope)] }] };
+        return { title: `${ev.name} registrations`, sub: scope === 'chitrantar' ? 'People who signed up, day by day' : `${ev.tagline} · total registrations, day by day`, totalUnit: 'registrations', unit: ['registration', 'registrations'], items: [{ label: ev.name, color: evColor(scope), data: d.series.all.data[evIndex(scope)] }] };
       }
       const src = d.series[scope];
       const order = genreOrder(scope);
       const photos = scope === 'chitrantar';
       return {
-        title: `${ev.name} by ${photos ? 'theme' : 'genre'}`,
-        sub: photos ? 'Photos submitted in each theme' : `${ev.tagline} · registrations per genre`,
-        totalUnit: photos ? 'photos' : 'registrations',
+        title: photos ? `${ev.name} submissions by theme` : `${ev.name} registrations by genre`,
+        sub: photos ? 'Submissions (photos) in each theme' : `${ev.tagline} · registrations per genre`,
+        totalUnit: photos ? 'photos submitted' : 'registrations',
         unit: photos ? ['photo', 'photos'] : ['registration', 'registrations'],
-        note: photos ? 'Counts photos: one registration can enter up to three themes.'
+        note: photos ? 'Counts submissions, not registrations: one registration can enter up to three themes.'
           : scope === 'chitragati' ? '"Both" registrations are shown on their own, so nobody is counted twice.' : '',
         items: src.labels.map((label, i) => ({ label, color: colorIn(order, label), data: src.data[i] })),
       };
@@ -771,11 +781,38 @@
   const explorers = [regExplorer, feeExplorer];
 
   // ================================================================== events overview
+  /** Genre rows for an event card. Chitrantar counts submissions per theme; the others count
+   *  registrations per genre, exclusive (Chitragati "Both" is its own row) so rows add up to the total. */
+  function genreList(ev, photos, order) {
+    if (!ev.breakdown.length) return null;
+    let rows;
+    if (photos) {
+      rows = ev.breakdown.map((x) => ({ label: x.label, value: x.value }));
+    } else {
+      const src = S.data.series[ev.id];
+      const totals = new Map(src.labels.map((l, i) => [l, sum(src.data[i])]));
+      rows = ev.breakdown.map((x) => ({ label: x.label, value: totals.get(x.label) || 0 }));
+      if (totals.get('Both')) rows.push({ label: 'Both sections', color: colorIn(order, 'Both'), value: totals.get('Both') });
+      if (totals.get('Other')) rows.push({ label: 'Not specified', color: OVERFLOW, value: totals.get('Other') });
+    }
+    const whole = photos ? ev.submissions : ev.registrations;
+    const max = Math.max(1, ...rows.map((r) => r.value));
+    return h('span', { class: 'breakdown', role: 'list' },
+      h('span', { class: 'bd-title' }, photos ? 'Submissions by theme' : 'Registrations by genre'),
+      rows.map((r) => {
+        const color = r.color || colorIn(order, r.label);
+        return h('span', { class: 'brow', role: 'listitem' },
+          h('span', { class: 'lbl' }, swatch(color), h('span', null, r.label)),
+          h('span', { class: 'val' }, nf.format(r.value), h('small', null, pct(r.value, whole))),
+          fillBar(r.value / max, color));
+      }),
+      photos ? null : h('span', { class: 'brow bd-total', role: 'listitem' }, h('span', { class: 'lbl' }, h('span', null, 'Total')), h('span', { class: 'val' }, nf.format(ev.registrations))));
+  }
+
   function renderEvents() {
     const d = S.data;
     el.events.replaceChildren(...d.events.map((ev, idx) => {
       const photos = ev.id === 'chitrantar';
-      const max = Math.max(1, ...ev.breakdown.map((x) => x.value));
       const order = genreOrder(ev.id);
       const card = h('button', { class: `event${ev.connected ? '' : ' is-off'}`, type: 'button', 'data-reveal': true, 'data-d': String(idx % 2) },
         h('span', { class: 'event-top' },
@@ -783,23 +820,22 @@
             h('span', { class: 'event-idx' }, `0${idx + 1}`),
             h('span', { class: 'event-name' }, ev.name),
             h('span', { class: 'event-tag' }, ev.tagline)),
-          h('span', { class: 'event-num' }, h('b', null, nf.format(ev.registrations)), h('span', null, plural(ev.registrations, 'registration')))),
+          photos ? null : h('span', { class: 'event-num' }, h('b', null, nf.format(ev.registrations)), h('span', null, `total ${plural(ev.registrations, 'registration')}`))),
+        photos ? h('span', { class: 'duo' },
+          h('span', { class: 'duo-cell' }, h('span', { class: 'duo-label' }, 'Registrations'), h('b', null, nf.format(ev.registrations)), h('span', { class: 'duo-sub' }, 'people signed up')),
+          h('span', { class: 'duo-cell' }, h('span', { class: 'duo-label' }, 'Submissions'), h('b', null, nf.format(ev.submissions)), h('span', { class: 'duo-sub' }, 'photos sent in'))) : null,
         h('span', { class: 'event-meta' },
-          h('span', { class: `pill${ev.today ? ' up' : ''}` }, 'Today ', b(`${ev.today ? '+' : ''}${ev.today}`)),
-          photos ? h('span', { class: 'pill' }, 'Photos ', b(nf.format(ev.submissions))) : null,
-          ev.both ? h('span', { class: 'pill' }, 'Both sections ', b(ev.both)) : null),
-        ev.breakdown.length
-          ? h('span', { class: 'breakdown', role: 'list' }, ev.breakdown.map((x) => h('span', { class: 'brow', role: 'listitem' },
-            h('span', { class: 'lbl' }, swatch(colorIn(order, x.label)), h('span', null, x.label)),
-            h('span', { class: 'val' }, nf.format(x.value), photos ? h('small', null, plural(x.value, 'photo')) : null),
-            fillBar(x.value / max, colorIn(order, x.label)))))
-          : null,
+          h('span', { class: `pill${ev.today ? ' up' : ''}` }, photos ? 'Registrations today ' : 'Today ', b(`${ev.today ? '+' : ''}${ev.today}`)),
+          photos && ev.registrations ? h('span', { class: 'pill' }, 'Avg ', b((ev.submissions / ev.registrations).toFixed(2)), ' photos each') : null),
+        genreList(ev, photos, order),
         !ev.connected ? h('span', { class: 'event-note' }, 'Sheet not connected yet.')
-          : ev.id === 'chitragati' && ev.both ? h('span', { class: 'event-note' }, 'Registrations for both sections appear under each.')
+          : ev.id === 'chitragati' && ev.both ? h('span', { class: 'event-note' }, '"Both sections" is one registration, so the rows add up to the total.')
             : ev.id === 'rongolipi' ? h('span', { class: 'event-note' }, 'Team event: teams are formed on the day.') : null,
       );
       card.style.setProperty('--accent', SERIES[idx] || OVERFLOW);
-      card.setAttribute('aria-label', `${ev.name}: ${ev.registrations} registrations. Show its chart.`);
+      card.setAttribute('aria-label', photos
+        ? `${ev.name}: ${ev.registrations} registrations and ${ev.submissions} photo submissions. Show its chart.`
+        : `${ev.name}: ${ev.registrations} total registrations. Show its chart.`);
       if (ev.connected) card.addEventListener('click', () => regExplorer.focusEvent(ev.id));
       card.addEventListener('pointermove', (e) => {
         const r = card.getBoundingClientRect();

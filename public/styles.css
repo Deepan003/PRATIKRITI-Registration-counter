@@ -624,3 +624,15 @@ h2 { margin: 6px 0 0; font-weight: 850; font-stretch: 72%; font-size: 26px; line
 .cmp-wrap { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 #hourNote { margin-top: 10px; }
 #overview { scroll-margin-top: calc(var(--bar-h) + 8px); }
+
+/* Chitrantar: registrations and submissions side by side, equal weight */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: 14px; border-radius: 14px; overflow: hidden; background: var(--line-2); }
+.duo-cell { display: grid; gap: 4px; padding: 12px 14px; background: var(--surface-2); }
+.duo-label { font: 600 9.5px/1.2 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); }
+.duo-cell b { font-weight: 900; font-stretch: 62%; font-size: 46px; line-height: 0.9; font-variant-numeric: tabular-nums; }
+.duo-cell:last-child b { color: var(--s2); }
+.duo-sub { font-size: 11.5px; color: var(--faint); }
+.bd-title { display: block; margin-bottom: 2px; font: 600 10px/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--red-2); }
+.breakdown .val small { margin-left: 6px; }
+.brow.bd-total { padding-top: 8px; border-top: 1px solid var(--line); }
+.brow.bd-total .lbl { color: var(--text); font-weight: 650; }
