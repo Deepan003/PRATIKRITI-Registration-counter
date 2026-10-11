@@ -1,0 +1,9 @@
+{
+  "name": "pratikriti-registrations",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pratikriti registrations and submissions dashboard (IEMPACT Day 0)",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "dev": "vercel dev" }
+}

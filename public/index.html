@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a0808">
+  <title>Pratikriti Registrations</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@500;600&display=swap">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body class="is-booting">
+  <div class="atmos" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- boot -->
+  <div class="boot" id="boot" aria-hidden="true">
+    <img src="assets/photography-club.png" alt="" width="44" height="44">
+    <span class="boot-line"><i></i></span>
+  </div>
+
+  <!-- password gate -->
+  <section class="gate" id="gate" hidden aria-labelledby="gateTitle">
+    <div class="gate-inner">
+      <div class="gate-brand">
+        <img class="gate-club" src="assets/photography-club.png" alt="" width="52" height="52">
+        <picture>
+          <source srcset="assets/pratikriti.webp" type="image/webp">
+          <img class="gate-logo" src="assets/pratikriti.png" alt="Pratikriti" width="232" height="43">
+        </picture>
+      </div>
+      <p class="gate-kicker">Day 0 of IEMPACT · Organisers only</p>
+      <h1 class="gate-title" id="gateTitle">Registrations <span>dashboard</span></h1>
+      <form class="gate-form" id="gateForm" novalidate>
+        <label class="field" for="pw">
+          <span class="field-label">Password</span>
+          <span class="field-row">
+            <input id="pw" name="password" type="password" autocomplete="current-password" spellcheck="false" autocapitalize="off" maxlength="200" required enterkeyhint="go">
+            <button class="field-eye" id="pwEye" type="button" aria-label="Show password" aria-pressed="false">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+            </button>
+          </span>
+        </label>
+        <p class="gate-error" id="gateError" role="alert"></p>
+        <button class="unlock" id="unlock" type="submit">
+          <span>Unlock</span>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+      <p class="gate-foot">IEM Photography Club</p>
+    </div>
+  </section>
+
+  <!-- dashboard -->
+  <div class="app" id="app" hidden>
+    <header class="bar" id="bar">
+      <a class="brand" href="#top" aria-label="Back to top">
+        <img class="brand-club" src="assets/photography-club.png" alt="" width="28" height="28">
+        <span class="brand-rule" aria-hidden="true"></span>
+        <picture>
+          <source srcset="assets/pratikriti.webp" type="image/webp">
+          <img class="brand-logo" src="assets/pratikriti.png" alt="Pratikriti" width="118" height="22">
+        </picture>
+      </a>
+      <div class="bar-actions">
+        <span class="status" id="status" data-state="syncing"><span class="dot" aria-hidden="true"></span><span id="statusLabel">Sync</span></span>
+        <button class="icon-btn" id="refresh" type="button" aria-label="Refresh">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="icon-btn" id="logout" type="button" aria-label="Sign out">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14M10 16l4-4-4-4M14 12H4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <span class="progress" aria-hidden="true"><i id="progress"></i></span>
+    </header>
+
+    <main id="top">
+      <section class="intro" data-reveal>
+        <p class="eyebrow">Pratikriti · Day 0 of IEMPACT</p>
+        <h1 class="title">Registrations</h1>
+        <p class="updated" id="updated"></p>
+      </section>
+
+      <section class="hero" data-reveal aria-label="Total registrations">
+        <div class="hero-copy">
+          <p class="hero-label">Total registrations</p>
+          <p class="hero-num"><span class="roll" id="kTotal">0</span></p>
+          <p class="hero-sub" id="kTotalSub"></p>
+        </div>
+        <div class="spark-wrap" aria-hidden="true"><svg class="spark" id="spark" preserveAspectRatio="none"></svg></div>
+      </section>
+
+      <section class="strip" aria-label="Key numbers">
+        <div class="stat" data-reveal>
+          <p class="stat-label">Photos submitted</p>
+          <p class="stat-value"><span class="roll" id="kPhotos">0</span></p>
+          <p class="stat-sub">Chitrantar</p>
+        </div>
+        <div class="stat" data-reveal data-d="1">
+          <p class="stat-label">Today</p>
+          <p class="stat-value"><span class="roll" id="kToday">0</span></p>
+          <p class="stat-sub" id="kTodaySub"></p>
+        </div>
+        <div class="stat" data-reveal data-d="2">
+          <p class="stat-label">Colleges</p>
+          <p class="stat-value"><span class="roll" id="kColleges">0</span></p>
+          <p class="stat-sub">taking part</p>
+        </div>
+      </section>
+
+      <section class="panel explorer" id="regExplorer" data-reveal aria-label="Registration statistics"></section>
+
+      <section class="section" aria-labelledby="eventsTitle">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow small">Event-wise</p>
+          <h2 id="eventsTitle">Four events</h2>
+        </div>
+        <div class="events" id="events"></div>
+      </section>
+
+      <section class="section" aria-labelledby="collegesTitle">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow small">Best College · Most Submissions</p>
+          <h2 id="collegesTitle">Colleges</h2>
+        </div>
+        <div class="panel" data-reveal>
+          <ol class="colleges" id="colleges"></ol>
+          <button class="btn wide" id="moreColleges" type="button" hidden></button>
+        </div>
+      </section>
+
+      <section class="section fees" id="fees" aria-labelledby="feesTitle">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow small">Organisers only</p>
+          <h2 id="feesTitle">Fee collection</h2>
+        </div>
+        <div class="fee-hero" id="feeHero" data-reveal></div>
+        <div class="panel" data-reveal>
+          <p class="eyebrow small">Share of fees</p>
+          <h3 class="panel-title">By event</h3>
+          <div class="share" id="feeShare"></div>
+          <ul class="share-legend" id="feeShareLegend"></ul>
+        </div>
+        <section class="panel explorer" id="feeExplorer" data-reveal aria-label="Fee statistics"></section>
+        <div class="fee-events" id="feeEvents"></div>
+        <div class="panel" data-reveal>
+          <p class="eyebrow small">Reference</p>
+          <h3 class="panel-title">Fee structure</h3>
+          <dl class="prices" id="feePrices"></dl>
+        </div>
+        <p class="fee-note" data-reveal>Fees are worked out from the option each person picked on the form. They are not matched against payment screenshots or transaction IDs.</p>
+      </section>
+
+      <div class="empty" id="empty" role="status" hidden></div>
+    </main>
+
+    <footer class="foot">
+      <picture>
+        <source srcset="assets/iempact.webp" type="image/webp">
+        <img class="foot-art" src="assets/iempact.png" alt="IEMPACT" width="180" height="86" loading="lazy" decoding="async">
+      </picture>
+      <p><b>PRATIKRITI</b> — Day 0 of IEMPACT</p>
+      <p class="foot-note">IEM Photography Club · counts refresh every minute</p>
+    </footer>
+  </div>
+</body>
+</html>

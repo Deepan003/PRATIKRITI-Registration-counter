@@ -1,0 +1,14 @@
+node_modules/
+.vercel/
+.env
+.env.local
+.env*.local
+*.log
+
+# never commit form exports or Google keys: they contain personal data / secrets
+*.xlsx
+*.xls
+*.csv
+*.json.key
+service-account*.json
+*-key.json
